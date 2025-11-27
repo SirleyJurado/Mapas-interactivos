@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Rutas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+        .legend {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .legend h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+        .legend-item {
+            margin: 5px 0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <script>
+        // Datos de las ubicaciones según el orden especificado
+        const locations = [
+            { name: "TERMALES SANTA ROSA", lat: 4.838806, lng: -75.54924649, order: 1 },
+            { name: "QUIMBAYA", lat: 4.622616, lng: -75.76315611, order: 4 },
+            { name: "MIRADOR ENCANTO", lat: 4.677556, lng: -75.65857294, order: 2 },
+            { name: "FILANDIA QUINDÍO", lat: 4.674756089366085, lng: -75.6576581294989, order: 3 },
+            { name: "PARQUE DEL CAFÉ", lat: 4.540827, lng: -75.77055561, order: 5 },
+            { name: "VALLE DEL COCORA", lat: 4.635944, lng: -75.48741667, order: 6 }
+        ];
+
+        // Ordenar por el campo orden
+        locations.sort((a, b) => a.order - b.order);
+
+        // Inicializar el mapa centrado en la región
+        const map = L.map('map').setView([4.65, -75.65], 10);
+
+        // Agregar capa de mapa base
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 18
+        }).addTo(map);
+
+        // Colores para los marcadores según el orden
+        const colors = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33'];
+
+        // Agregar marcadores numerados
+        locations.forEach((loc, index) => {
+            const circleMarker = L.circleMarker([loc.lat, loc.lng], {
+                radius: 15,
+                fillColor: colors[index],
+                color: '#fff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+
+            // Agregar número dentro del círculo
+            const icon = L.divIcon({
+                className: 'number-icon',
+                html: `<div style="background-color: ${colors[index]}; 
+                              width: 30px; 
+                              height: 30px; 
+                              border-radius: 50%; 
+                              border: 2px solid white;
+                              display: flex; 
+                              align-items: center; 
+                              justify-content: center;
+                              font-weight: bold;
+                              color: white;
+                              font-size: 14px;
+                              box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+                        ${loc.order}
+                       </div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+
+            L.marker([loc.lat, loc.lng], { icon: icon }).addTo(map)
+                .bindPopup(`<b>${loc.order}. ${loc.name}</b><br>
+                           Lat: ${loc.lat.toFixed(6)}<br>
+                           Lng: ${loc.lng.toFixed(6)}`);
+        });
+
+        // Crear línea de ruta conectando los puntos en orden
+        const routeCoordinates = locations.map(loc => [loc.lat, loc.lng]);
+        
+        L.polyline(routeCoordinates, {
+            color: '#2c7fb8',
+            weight: 3,
+            opacity: 0.7,
+            dashArray: '10, 5',
+            lineJoin: 'round'
+        }).addTo(map);
+
+        // Agregar flechas direccionales en la línea
+        const arrowIcon = L.divIcon({
+            className: 'arrow-icon',
+            html: '<div style="font-size: 20px; color: #2c7fb8;">➜</div>',
+            iconSize: [20, 20]
+        });
+
+        for (let i = 0; i < routeCoordinates.length - 1; i++) {
+            const midLat = (routeCoordinates[i][0] + routeCoordinates[i + 1][0]) / 2;
+            const midLng = (routeCoordinates[i][1] + routeCoordinates[i + 1][1]) / 2;
+            
+            const angle = Math.atan2(
+                routeCoordinates[i + 1][0] - routeCoordinates[i][0],
+                routeCoordinates[i + 1][1] - routeCoordinates[i][1]
+            ) * 180 / Math.PI;
+
+            const rotatedIcon = L.divIcon({
+                className: 'arrow-icon',
+                html: `<div style="font-size: 16px; color: #2c7fb8; transform: rotate(${angle}deg);">➜</div>`,
+                iconSize: [20, 20]
+            });
+
+            L.marker([midLat, midLng], { icon: rotatedIcon }).addTo(map);
+        }
+
+        // Ajustar el zoom para mostrar todos los puntos
+        const bounds = L.latLngBounds(routeCoordinates);
+        map.fitBounds(bounds, { padding: [50, 50] });
+
+        // Agregar leyenda
+        const legend = L.control({ position: 'bottomright' });
+        legend.onAdd = function(map) {
+            const div = L.DomUtil.create('div', 'legend');
+            div.innerHTML = '<h4>Ruta del Recorrido</h4>';
+            locations.forEach((loc, index) => {
+                div.innerHTML += `<div class="legend-item">
+                    <span style="display: inline-block; width: 20px; height: 20px; 
+                                 background-color: ${colors[index]}; 
+                                 border-radius: 50%; 
+                                 margin-right: 5px;
+                                 vertical-align: middle;
+                                 border: 2px solid white;"></span>
+                    <b>${loc.order}.</b> ${loc.name}
+                </div>`;
+            });
+            return div;
+        };
+        legend.addTo(map);
+
+        // Calcular distancia total aproximada
+        let totalDistance = 0;
+        for (let i = 0; i < routeCoordinates.length - 1; i++) {
+            const from = L.latLng(routeCoordinates[i]);
+            const to = L.latLng(routeCoordinates[i + 1]);
+            totalDistance += from.distanceTo(to);
+        }
+
+        console.log(`Distancia total aproximada: ${(totalDistance / 1000).toFixed(2)} km`);
+    </script>
+</body>
+</html>
